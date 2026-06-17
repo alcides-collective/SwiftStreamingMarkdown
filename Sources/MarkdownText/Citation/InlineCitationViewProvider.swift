@@ -6,10 +6,24 @@
 import SwiftUI
 import UIKit
 
-private final class AttachmentCitationLabel: UILabel {
+/// Inline citation chip that NEVER grows its line.
+///
+/// The container claims only a small vertical box (`claimedHeight`, ~the chip
+/// font's cap height) for text layout, so the line fragment height stays equal to
+/// the surrounding body text. The actual rounded pill is drawn at its full
+/// natural size, vertically centered on that small box with clipping off, so it
+/// overflows above/below and may slightly cover adjacent lines — an accepted
+/// tradeoff for perfectly uniform line height. Driven via the view's
+/// `intrinsicContentSize` with `tracksTextAttachmentViewBounds = true` (the path
+/// that actually governs line height for view-provider attachments here).
+private final class AttachmentCitationLabel: UIView {
   private let textInsets = InlineCitationAttachment.textInsets
-
-  // MARK: Initialization
+  private let pill = UILabel()
+  /// Full natural size of the visible chip (text + insets).
+  private let pillSize: CGSize
+  /// The height claimed for text layout. Kept at the chip font's cap height,
+  /// which is below the body text's ascent, so the line never grows.
+  private let claimedHeight: CGFloat
 
   init(
     title: String,
@@ -17,37 +31,53 @@ private final class AttachmentCitationLabel: UILabel {
     textColor: UIColor,
     backgroundColor: UIColor
   ) {
-    super.init(frame: .zero)
-    self.backgroundColor = backgroundColor
-    self.layer.cornerRadius = InlineCitationAttachment.cornerRadius
-    self.layer.masksToBounds = true
-    self.font = font
-    self.textColor = textColor
-    self.textAlignment = .center
-    self.numberOfLines = 1
-    self.text = title
+    let textSize = (title as NSString).size(withAttributes: [.font: font])
+    pillSize = CGSize(
+      width: ceil(textSize.width) + textInsets.left + textInsets.right,
+      height: ceil(textSize.height) + textInsets.top + textInsets.bottom
+    )
+    claimedHeight = ceil(font.capHeight)
 
-    // This prevents inline citations from being focusable in linear VoiceOver navigation
-    // Citations will still be accessible via the Links rotor through the parent UITextView
-    self.isAccessibilityElement = false
+    super.init(frame: .zero)
+
+    // Let the pill overflow this container's (small) box onto adjacent lines.
+    clipsToBounds = false
+    // Touches fall through to the parent UITextView, which handles the citation
+    // link/attachment tap; keep the chip out of linear VoiceOver (it's reachable
+    // via the Links rotor).
+    isUserInteractionEnabled = false
+    isAccessibilityElement = false
+
+    pill.backgroundColor = backgroundColor
+    pill.layer.cornerRadius = InlineCitationAttachment.cornerRadius
+    pill.layer.masksToBounds = true
+    pill.font = font
+    pill.textColor = textColor
+    pill.textAlignment = .center
+    pill.numberOfLines = 1
+    pill.text = title
+    pill.isAccessibilityElement = false
+    addSubview(pill)
   }
 
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
   }
 
-  // MARK: Layout
-
-  override func drawText(in rect: CGRect) {
-    let insetRect = rect.inset(by: textInsets)
-    super.drawText(in: insetRect)
+  override var intrinsicContentSize: CGSize {
+    // Full width (so following text doesn't overlap the chip horizontally) but
+    // only a small claimed height (so the line height matches body text).
+    CGSize(width: pillSize.width, height: claimedHeight)
   }
 
-  override var intrinsicContentSize: CGSize {
-    let size = super.intrinsicContentSize
-    return CGSize(
-      width: size.width + textInsets.left + textInsets.right,
-      height: size.height + textInsets.top + textInsets.bottom
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    // Center the full-size chip on the claimed box; it overflows symmetrically.
+    pill.frame = CGRect(
+      x: 0,
+      y: (bounds.height - pillSize.height) / 2.0,
+      width: pillSize.width,
+      height: pillSize.height
     )
   }
 }
@@ -65,31 +95,10 @@ final class InlineCitationViewProvider: NSTextAttachmentViewProvider {
       textLayoutManager: textLayoutManager,
       location: location
     )
-    // Size the pill ourselves in `attachmentBounds`. On the TextKit2 path
-    // (UITextView on iOS 26) the view's own bounds would otherwise drive the line
-    // fragment height; the citation view is taller than the body text's cap box,
-    // so it would push this line taller than its neighbors.
-    tracksTextAttachmentViewBounds = false
-  }
-
-  /// Constrain the pill to the surrounding text's own vertical box: cap the
-  /// height to the body cap height and sit it from the baseline up to the cap
-  /// (the same box the digits occupy). It then contributes no more ascent — and
-  /// no descent — than the text on that line, so the line height never changes.
-  /// (Paired with the removal of the attachment's `.baselineOffset` in
-  /// `Paragraph+.swift`, which was inflating the paragraph's measured height.)
-  override func attachmentBounds(
-    for attributes: [NSAttributedString.Key: Any],
-    location: any NSTextLocation,
-    textContainer: NSTextContainer?,
-    proposedLineFragment: CGRect,
-    position: CGPoint
-  ) -> CGRect {
-    guard let label = view else { return .zero }
-    let natural = label.intrinsicContentSize
-    let font = (attributes[.font] as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
-    let height = min(natural.height, font.capHeight)
-    return CGRect(x: 0, y: 0, width: natural.width, height: height)
+    // Track the view's bounds: the container reports a small `intrinsicContentSize`
+    // height, so the attachment occupies little vertical space and the line height
+    // stays equal to the body text. The chip itself overflows that box.
+    tracksTextAttachmentViewBounds = true
   }
 
   override func loadView() {
