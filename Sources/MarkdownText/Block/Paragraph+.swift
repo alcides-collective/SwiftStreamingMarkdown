@@ -43,21 +43,24 @@ extension BlockMarkup {
         if let attachmentData = attachmentData,
            let attachment = InlineCitationAttachment(citationData: attachmentData, citationConfig: config.citationConfig) {
           let attachmentString = NSMutableAttributedString(attachment: attachment)
+          let fullRange = NSRange(location: 0, length: attachmentString.length)
 
+          // Give the attachment character the surrounding paragraph font so the
+          // line-height clamp (ParagraphUIView.setCSSLineHeight) and layout see a
+          // normal run, not a metric-less attachment glyph.
+          attachmentString.addAttribute(
+            .font,
+            value: config.paragraphStyle.textFonts.normal,
+            range: fullRange
+          )
           // Add link attribute for accessibility activation (space key)
-          let url = attachmentData.url
-          attachmentString.addAttribute(
-            .link,
-            value: url,
-            range: NSRange(location: 0, length: attachmentString.length)
-          )
+          attachmentString.addAttribute(.link, value: attachmentData.url, range: fullRange)
 
-          // Apply baseline offset to the attachment using the font from config
-          attachmentString.addAttribute(
-            .baselineOffset,
-            value: config.paragraphStyle.textFonts.normal.descender,
-            range: NSRange(location: 0, length: attachmentString.length)
-          )
+          // NOTE: do NOT apply a negative `.baselineOffset` (= font descender) to
+          // the attachment character. It leaves each line fragment at the clamped
+          // height but inflates the paragraph's measured/`sizeThatFits` height, so a
+          // paragraph containing a citation reads ~descender-pt taller than its
+          // neighbors even though the pill itself fits. (Audited 2026-06-17.)
 
           // Add the citation directly to result
           result.append(attachmentString)
