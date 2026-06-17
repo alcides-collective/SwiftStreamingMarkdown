@@ -171,10 +171,10 @@ class ParagraphUIView: UITextView {
 
   private func applyLineSpacing(to attributedString: NSMutableAttributedString, lineSpacing: CGFloat?, lineHeightMultiple: CGFloat = 1.0) -> NSMutableAttributedString {
     let result = NSMutableAttributedString(attributedString: attributedString)
-    // A line-height multiple (when set) takes precedence and applies uniformly,
+    // A CSS-style line height (when set) takes precedence and applies uniformly,
     // overriding the per-block additive spacing so line height is consistent.
     if lineHeightMultiple != 1.0 {
-      result.setLineHeightMultiple(lineHeightMultiple)
+      result.setCSSLineHeight(factor: lineHeightMultiple)
     } else if let lineSpacing {
       result.setLineSpacing(lineSpacing)
     }
@@ -423,9 +423,25 @@ fileprivate extension NSMutableAttributedString {
     addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: length))
   }
 
-  func setLineHeightMultiple(_ multiple: CGFloat) {
+  /// Sets a CSS-style line height: the line box becomes `factor × fontPointSize`
+  /// (like Tailwind `leading-*` and SwiftUI `.lineHeight(.multiple:)`), NOT a multiple
+  /// of the font's *natural* line height. `NSParagraphStyle.lineHeightMultiple` scales
+  /// the natural metrics, which for faces like Overused Grotesk (natural line height
+  /// ~1.35× point size) overshoots badly (1.2 → ~1.62× point size). An absolute
+  /// `min == max` line box reproduces the exact `factor × pointSize` the rest of the
+  /// app uses via SwiftUI's `.lineHeight(.multiple:)`. Sized off the largest font in
+  /// the run so a taller glyph (heading, inline span) is never clipped.
+  func setCSSLineHeight(factor: CGFloat) {
+    guard length > 0 else { return }
+    var pointSize: CGFloat = 0
+    enumerateAttribute(.font, in: NSRange(location: 0, length: length)) { value, _, _ in
+      if let font = value as? UIFont { pointSize = max(pointSize, font.pointSize) }
+    }
+    if pointSize == 0 { pointSize = UIFont.preferredFont(forTextStyle: .body).pointSize }
+    let lineHeight = pointSize * factor
     let paragraphStyle = NSMutableParagraphStyle()
-    paragraphStyle.lineHeightMultiple = multiple
+    paragraphStyle.minimumLineHeight = lineHeight
+    paragraphStyle.maximumLineHeight = lineHeight
     paragraphStyle.alignment = .left
     addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: length))
   }

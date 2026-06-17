@@ -33,10 +33,14 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
   public let textContextMenu: TextContextMenu?
   /// Configuration that controls inline citation parsing and rendering.
   public let citationConfig: CitationConfig
-  /// Multiplies the line height of paragraph + heading text (via
-  /// `NSParagraphStyle.lineHeightMultiple`). 1.0 keeps the engine's built-in
-  /// per-block spacing; a value > 1 applies a uniform multiple across blocks,
-  /// overriding that default so line height stays consistent.
+  /// CSS-style line-height factor applied uniformly to paragraph + heading text:
+  /// the line box becomes `factor × fontPointSize` (like Tailwind `leading-*` /
+  /// SwiftUI `.lineHeight(.multiple:)`), NOT a multiple of the font's *natural* line
+  /// height. 1.0 keeps the engine's built-in per-block spacing; a value > 1 sets an
+  /// absolute `min == max` line box so line height stays consistent across blocks and
+  /// matches a host app that uses `.lineHeight(.multiple:)`. (Implemented via
+  /// `min/maximumLineHeight`, not `NSParagraphStyle.lineHeightMultiple`, because the
+  /// latter scales natural metrics and overshoots tall faces like Overused Grotesk.)
   public let lineHeightMultiple: CGFloat
 
   /// Font and color style for a uniformly-styled run of markdown text.
