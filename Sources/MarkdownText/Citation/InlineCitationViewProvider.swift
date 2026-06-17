@@ -87,9 +87,12 @@ final class InlineCitationViewProvider: NSTextAttachmentViewProvider {
     guard let label = view else { return .zero }
     let natural = label.intrinsicContentSize
     let font = (attributes[.font] as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
-    let height = min(natural.height, font.capHeight + 5)
-    let y = font.capHeight / 2 - height / 2
-    return CGRect(x: 0, y: y, width: natural.width, height: height)
+    // Match the surrounding text's own extent: cap the pill to the body cap
+    // height and sit it from the baseline up to the cap (the same box the digits
+    // occupy). It then contributes no more ascent — and no descent — than the
+    // text on that line, so the line height never changes.
+    let height = min(natural.height, font.capHeight)
+    return CGRect(x: 0, y: 0, width: natural.width, height: height)
   }
 
   override func loadView() {
