@@ -65,7 +65,31 @@ final class InlineCitationViewProvider: NSTextAttachmentViewProvider {
       textLayoutManager: textLayoutManager,
       location: location
     )
-    tracksTextAttachmentViewBounds = true
+    // Size the pill ourselves in `attachmentBounds`. On the TextKit2 path
+    // (UITextView on iOS 26) the view's own bounds would otherwise drive the line
+    // fragment height; the citation view is taller than the body text's cap box,
+    // so it would push this line taller than its neighbors.
+    tracksTextAttachmentViewBounds = false
+  }
+
+  /// Constrain the pill to the surrounding text's own vertical box: cap the
+  /// height to the body cap height and sit it from the baseline up to the cap
+  /// (the same box the digits occupy). It then contributes no more ascent — and
+  /// no descent — than the text on that line, so the line height never changes.
+  /// (Paired with the removal of the attachment's `.baselineOffset` in
+  /// `Paragraph+.swift`, which was inflating the paragraph's measured height.)
+  override func attachmentBounds(
+    for attributes: [NSAttributedString.Key: Any],
+    location: any NSTextLocation,
+    textContainer: NSTextContainer?,
+    proposedLineFragment: CGRect,
+    position: CGPoint
+  ) -> CGRect {
+    guard let label = view else { return .zero }
+    let natural = label.intrinsicContentSize
+    let font = (attributes[.font] as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+    let height = min(natural.height, font.capHeight)
+    return CGRect(x: 0, y: 0, width: natural.width, height: height)
   }
 
   override func loadView() {
