@@ -31,6 +31,7 @@ class ParagraphUIView: UITextView {
 
   private(set) var paragraphContents: NSMutableAttributedString = NSMutableAttributedString()
   private(set) var lineSpacing: CGFloat?
+  private(set) var lineHeightMultiple: CGFloat = 1.0
   private var activeAnimations: [FadeAnimationData] = []
   private var fadeAnimationDisplayLink: CADisplayLink?
   private var cachedSize: CachedParagraphUIViewSize?
@@ -105,21 +106,22 @@ class ParagraphUIView: UITextView {
     invalidateIntrinsicContentSize()
   }
 
-  func setParagraphContents(_ newContents: NSMutableAttributedString, lineSpacing: CGFloat? = nil, animatedByWord: Bool) {
+  func setParagraphContents(_ newContents: NSMutableAttributedString, lineSpacing: CGFloat? = nil, lineHeightMultiple: CGFloat = 1.0, animatedByWord: Bool) {
     // Keep the cached interface style up to date for citation preview rendering.
     // This runs on the main thread so it's safe to read traitCollection here.
     InlineCitationAttachment.updateInterfaceStyle(traitCollection.userInterfaceStyle)
 
-    guard paragraphContents != newContents || self.lineSpacing != lineSpacing else {
+    guard paragraphContents != newContents || self.lineSpacing != lineSpacing || self.lineHeightMultiple != lineHeightMultiple else {
       return
     }
     self.paragraphContents = newContents
     self.lineSpacing = lineSpacing
+    self.lineHeightMultiple = lineHeightMultiple
 
     let oldAttributedString: NSAttributedString = attributedText
     let finalString: NSMutableAttributedString
-    if lineSpacing != nil {
-      finalString = applyLineSpacing(to: newContents, lineSpacing: lineSpacing)
+    if lineSpacing != nil || lineHeightMultiple != 1.0 {
+      finalString = applyLineSpacing(to: newContents, lineSpacing: lineSpacing, lineHeightMultiple: lineHeightMultiple)
     } else {
       finalString = newContents
     }
@@ -167,9 +169,13 @@ class ParagraphUIView: UITextView {
     }
   }
 
-  private func applyLineSpacing(to attributedString: NSMutableAttributedString, lineSpacing: CGFloat?) -> NSMutableAttributedString {
+  private func applyLineSpacing(to attributedString: NSMutableAttributedString, lineSpacing: CGFloat?, lineHeightMultiple: CGFloat = 1.0) -> NSMutableAttributedString {
     let result = NSMutableAttributedString(attributedString: attributedString)
-    if let lineSpacing {
+    // A line-height multiple (when set) takes precedence and applies uniformly,
+    // overriding the per-block additive spacing so line height is consistent.
+    if lineHeightMultiple != 1.0 {
+      result.setLineHeightMultiple(lineHeightMultiple)
+    } else if let lineSpacing {
       result.setLineSpacing(lineSpacing)
     }
     return result
@@ -413,6 +419,13 @@ fileprivate extension NSMutableAttributedString {
   func setLineSpacing(_ lineSpacing: CGFloat) {
     let paragraphStyle = NSMutableParagraphStyle()
     paragraphStyle.lineSpacing = lineSpacing
+    paragraphStyle.alignment = .left
+    addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: length))
+  }
+
+  func setLineHeightMultiple(_ multiple: CGFloat) {
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineHeightMultiple = multiple
     paragraphStyle.alignment = .left
     addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: length))
   }

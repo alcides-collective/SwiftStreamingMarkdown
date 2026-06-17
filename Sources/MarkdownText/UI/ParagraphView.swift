@@ -21,7 +21,7 @@ struct ParagraphView: UIViewRepresentable {
     let openUrlFunction = openURL.callAsFunction(_:)
     let view = ParagraphUIViewCache.shared.createOrReuseParagraphUIView(contents: contents, lineSpacing: lineSpacing)
     view.onUrlTap = openUrlFunction
-    view.setParagraphContents(contents, lineSpacing: lineSpacing, animatedByWord: false)
+    view.setParagraphContents(contents, lineSpacing: lineSpacing, lineHeightMultiple: config.lineHeightMultiple, animatedByWord: false)
     view.setTextContextMenu(config.textContextMenu)
     view.setMarkdownController(markdownController)
 
@@ -36,9 +36,9 @@ struct ParagraphView: UIViewRepresentable {
   }
 
   func updateUIView(_ view: ParagraphUIView, context: Context) {
-    if view.paragraphContents != contents || view.lineSpacing != lineSpacing {
+    if view.paragraphContents != contents || view.lineSpacing != lineSpacing || view.lineHeightMultiple != config.lineHeightMultiple {
       let shouldAnimate = view.window != nil && config.shouldAnimateText // only animate when visible
-      view.setParagraphContents(contents, lineSpacing: lineSpacing, animatedByWord: shouldAnimate)
+      view.setParagraphContents(contents, lineSpacing: lineSpacing, lineHeightMultiple: config.lineHeightMultiple, animatedByWord: shouldAnimate)
     }
     view.setTextContextMenu(config.textContextMenu)
     view.setMarkdownController(markdownController)

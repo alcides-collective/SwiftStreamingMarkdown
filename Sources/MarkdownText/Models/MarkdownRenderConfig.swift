@@ -33,6 +33,11 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
   public let textContextMenu: TextContextMenu?
   /// Configuration that controls inline citation parsing and rendering.
   public let citationConfig: CitationConfig
+  /// Multiplies the line height of paragraph + heading text (via
+  /// `NSParagraphStyle.lineHeightMultiple`). 1.0 keeps the engine's built-in
+  /// per-block spacing; a value > 1 applies a uniform multiple across blocks,
+  /// overriding that default so line height stays consistent.
+  public let lineHeightMultiple: CGFloat
 
   /// Font and color style for a uniformly-styled run of markdown text.
   public struct MarkdownTextStyle: Hashable, Sendable {
@@ -237,7 +242,8 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
     tableStyle: MarkdownTableTextStyle = MarkdownRenderConfig.defaultTableStyle,
     inlineStyle: MarkdownInlineTextStyle = MarkdownRenderConfig.defaultInlineStyle,
     textContextMenu: TextContextMenu? = nil,
-    citationConfig: CitationConfig = .default
+    citationConfig: CitationConfig = .default,
+    lineHeightMultiple: CGFloat = 1.0
   ) {
     self.shouldAnimateText = shouldAnimateText
     self.blockQuoteStyle = blockQuoteStyle
@@ -248,6 +254,7 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
     self.inlineStyle = inlineStyle
     self.textContextMenu = textContextMenu
     self.citationConfig = citationConfig
+    self.lineHeightMultiple = lineHeightMultiple
   }
 
   /// The default render config, equivalent to calling `init()` with no
