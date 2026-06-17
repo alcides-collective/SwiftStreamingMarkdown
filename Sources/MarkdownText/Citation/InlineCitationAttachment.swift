@@ -55,8 +55,8 @@ final class InlineCitationAttachment: NSTextAttachment {
   /// Layout constants shared between the live `AttachmentCitationLabel` (in
   /// `InlineCitationViewProvider`) and the static image rasterized by
   /// `renderCitationImage`, so the two renderings stay visually identical.
-  static let textInsets = UIEdgeInsets(top: 2, left: 4, bottom: 2, right: 4)
-  static let cornerRadius: CGFloat = 6
+  static let textInsets = UIEdgeInsets(top: 1, left: 4, bottom: 1, right: 4)
+  static let cornerRadius: CGFloat = 5
 
   override var image: UIImage? {
     get {
